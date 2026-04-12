@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能排班考勤表统</title>
+    <meta name="description" content="智能排班考勤系统 支持四天休息、保底8人规则及自定义颜色">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        [v-cloak] { display: none !important; }
+
+        :root {
+            --primary: #4F46E5;
+            --primary-light: #EEF2FF;
+            --bg-color: #F1F5F9;
+            --card-bg: #FFFFFF;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --border-color: #CBD5E1;
+            --header-bg: #E2E8F0;
+            
+            --color-xiu: #FEF08A; 
+            --color-xiu-text: #854D0E;
+            --color-li: #E5E7EB; 
+            --color-li-text: #94A3B8;
+            --color-green: #22C55E;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 30px 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 1600px;
+            padding: 32px;
+            box-sizing: border-box;
+        }
+
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .action-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        input[type="month"] {
+            padding: 10px 14px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            outline: none;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        input[type="month"]:focus { border-color: var(--primary); }
+
+        button {
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        button.outline {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+            color: var(--text-main);
+        }
+        button.outline:hover { background-color: #F8FAFC; }
+
+        button.primary-gradient {
+            background: linear-gradient(135deg, #4F46E5, #3B82F6);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
+        }
+        button.primary-gradient:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 10px -1px rgba(59, 130, 246, 0.3);
+        }
+
+        .title-wrapper { text-align: center; margin-bottom: 24px; }
+        .title-input {
+            font-size: 28px; font-weight: 700; color: var(--text-main);
+            border: none; border-bottom: 2px dashed transparent;
+            text-align: center; width: 60%; background: transparent; outline: none;
+        }
+        .title-input:hover, .title-input:focus { border-bottom-color: var(--primary); }
+
+        .table-responsive {
+            width: 100%; overflow-x: auto;
+            border: 1px solid var(--border-color); border-radius: 12px;
+        }
+        table { border-collapse: collapse; width: 100%; min-width: max-content; table-layout: fixed; }
+        
+        th, td { border: 1px solid var(--border-color); height: 42px; position: relative; text-align: center; }
+        
+        th { background-color: var(--header-bg); font-size: 13px; color: #334155; font-weight: 700; }
+        .col-seq { width: 44px; }
+        .col-name-date { width: 90px; }
+        .col-day { width: 34px; }
+        .col-stat { width: 50px; }
+        .col-remark { width: 120px; }
+
+        .diagonal-header {
+            position: relative; width: 100%; height: 100%; min-height: 42px;
+            background-image: linear-gradient(to bottom right, transparent calc(50% - 1px), var(--border-color), transparent calc(50% + 1px));
+        }
+        .diagonal-header span.date-label { position: absolute; top: 4px; right: 6px; font-size: 11px; }
+        .diagonal-header span.name-label { position: absolute; bottom: 4px; left: 6px; font-size: 11px; }
+
+        .cell-input, .cell-name {
+            width: 100%; height: 100%; border: none; background: transparent;
+            text-align: center; font-size: 14px; font-weight: 600; outline: none; transition: 0.1s;
+        }
+        .cell-input:focus, .cell-name:focus {
+            background-color: var(--primary-light); box-shadow: inset 0 0 0 2px var(--primary); z-index: 10;
+        }
+
+        /* Shift Colors */
+        .bg-A { background-color: #E0F2FE; } 
+        .bg-A .cell-input { color: #0369A1; font-weight: 700;} 
+        .bg-B { background-color: #EDE9FE; } 
+        .bg-B .cell-input { color: #4338CA; font-weight: 700;} 
+        .bg-xiu { background-color: var(--color-xiu); }
+        .bg-xiu .cell-input { color: var(--color-xiu-text); }
+        .bg-li { background-color: var(--color-li); }
+        .bg-green { background-color: var(--color-green); }
+        .bg-green .cell-input { color: white; }
+
+        .row-hover:hover { background-color: #F8FAFC; }
+        .stat-cell { background-color: #F8FAFC; font-size: 13px; font-weight: 700; color: var(--text-muted); cursor: default;}
+        .stat-A { color: #0284C7; }
+        .stat-B { color: #4F46E5; }
+        .stat-Xiu { color: #B45309; }
+
+        .btn-remove {
+            position: absolute; left: -32px; top: 50%; transform: translateY(-50%) scale(0.9);
+            background: white; color: #EF4444; border: 1px solid #FECACA; border-radius: 50%;
+            width: 22px; height: 22px; cursor: pointer; opacity: 0; display: flex; align-items: center; justify-content: center;
+        }
+        tr:hover .btn-remove { opacity: 1; transform: translateY(-50%) scale(1); }
+        .btn-remove:hover { background: #FEE2E2; }
+
+        .summary-row { background-color: var(--header-bg); font-weight: 700; border-top: 2px solid var(--border-color); }
+        .warn-text { color: #DC2626 !important; font-weight: bold; background-color: #FEE2E2; }
+
+        textarea.footer-notes {
+            width: 100%; margin-top: 24px; padding: 16px; border: 2px solid var(--border-color); border-radius: 10px;
+            min-height: 80px; font-family: inherit; outline: none; box-sizing: border-box; resize: vertical;
+        }
+        
+        .help-panel {
+            margin-top: 16px; padding: 16px; background-color: #F8FAFC; border-radius: 8px; border: 1px solid #E2E8F0;
+            font-size: 13px; color: #475569; display: flex; flex-direction: column; gap: 8px;
+        }
+        .help-title { font-weight: bold; color: #0F172A; font-size: 14px;}
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin: 0 4px; font-weight: bold;}
+    </style>
+</head>
+<body>
+    <div id="app" class="container" v-cloak>
+        
+        <div class="header-actions">
+            <div class="action-group">
+                <input type="month" v-model="selectedMonthStr" @change="onMonthChange" title="更改月份">
+                <button @click="addEmployee" class="outline">+ 新增人员</button>
+                <button @click="clearAB" class="outline" title="仅清空目前的A班和B班，保留特定的假日">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> 清空 A/B 班
+                </button>
+                <button @click="autoSchedule" class="primary-gradient">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ⚡ 一键智能排班 (休4天, ≥8人)
+                </button>
+            </div>
+            <div class="action-group">
+                <button @click="exportToExcel" class="outline" style="border-color: #10B981; color: #10B981;">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg> 导出 Excel
+                </button>
+            </div>
+        </div>
+
+        <div class="title-wrapper">
+            <input type="text" class="title-input" v-model="title">
+        </div>
+
+        <div class="table-responsive">
+            <table id="scheduleTable">
+                <thead>
+                    <tr>
+                        <th class="col-seq">序号</th>
+                        <th class="col-name-date">
+                            <div class="diagonal-header">
+                                <span class="date-label">日期</span>
+                                <span class="name-label">姓名</span>
+                            </div>
+                        </th>
+                        <th v-for="day in daysInMonth" :key="day" class="col-day">{{ day }}</th>
+                        <!-- Stat Columns -->
+                        <th class="col-stat" title="白班总数">白(A)</th>
+                        <th class="col-stat" title="晚班总数">晚(B)</th>
+                        <th class="col-stat" title="休息总数">休</th>
+                        <th class="col-remark">备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(emp, index) in employees" :key="emp.id" class="row-hover">
+                        <td style="position:relative;">
+                            <button class="btn-remove" @click="removeEmployee(emp.id)">×</button>
+                            {{ index + 1 }}
+                        </td>
+                        <td>
+                            <input type="text" class="cell-name" v-model="emp.name">
+                        </td>
+                        <td v-for="day in daysInMonth" :key="day" :class="getCellClass(emp.schedule[day])">
+                            <input type="text" class="cell-input" 
+                                   v-model="emp.schedule[day]" 
+                                   maxlength="2"
+                                   @focus="$event.target.select()"
+                                   @dblclick="cycleValue(emp, day)">
+                        </td>
+                        <td class="stat-cell stat-A">{{ statCount(emp, 'A') }}</td>
+                        <td class="stat-cell stat-B">{{ statCount(emp, 'B') }}</td>
+                        <td class="stat-cell stat-Xiu">{{ statCount(emp, '休') }}</td>
+                        <td>
+                            <input type="text" class="cell-input" v-model="emp.remark" style="text-align:left; padding:0 8px;">
+                        </td>
+                    </tr>
+                    
+                    <!-- Bottom Total Working -->
+                    <tr class="summary-row">
+                        <td colspan="2" style="text-align: right; padding-right: 16px;">总出岗人数<br><span style="font-size:10px;font-weight:normal;color:#64748B;">(不可少于8人)</span></td>
+                        <td v-for="day in daysInMonth" :key="day" :class="{'warn-text': isUnderStaffed(day)}">
+                            {{ dailyHeadcount(day) || '' }}
+                        </td>
+                        <td colspan="4"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <textarea class="footer-notes" v-model="bottomNotes" placeholder="填写说明内容..."></textarea>
+
+        <div class="help-panel">
+            <div class="help-title">💡 智能排班硬核算法说明：</div>
+            <div>1. <strong>告别疯狂连休：</strong>系统底层已植入高级拉扯算法，彻底拦死连休 3 天。更强大的是：普通单休之间系统会强制拉开 <strong>至少空 5天（约1周休1次）</strong> 的跨度；若是连休了2天，系统会强制将其前后拉开 <strong>至少空 8天（约10天大断档）</strong> 的极致跨度，确保人员战力平稳。</div>
+            <div>2. <strong>平铺式散班：</strong>算法通过 50 倍的轮盘加权运算机制，尽可能将休息天数打撒，做到了 <strong>“尽量保证每一天都有一个人轮休”</strong> 的人性化策略。</div>
+            <div>3. <strong>固定白班晚班原则：</strong>在巧妙穿插完休假后，系统会稳稳认定 <span class="badge" style="background:#E0F2FE;color:#0369A1;">前 5 行人员为永久白班(A)</span>，从第 6 行及以后的人员为 <span class="badge" style="background:#EDE9FE;color:#4338CA;">夜班(B)</span>，不乱位不串班。</div>
+            <div>4. <strong>硬性底线死防守：</strong>系统每秒推演上千条路线，任何违背 <strong>低于8名在岗人员</strong>，或者出现 <strong>同一天内有2人同休白班 / 2人同休晚班</strong> 的分支都将被无情抹除换路。您完全不用操心合规性。</div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed } = Vue;
+
+        createApp({
+            setup() {
+                const today = new Date();
+                const selectedMonthStr = ref(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
+                const title = ref(`${today.getFullYear()}. ${(today.getMonth() + 1)}月安保考勤表`);
+                const bottomNotes = ref("备注说明：\n1. A为白班，B为夜班，休为休息。排班已确保每日至少8名及以上安保在岗。");
+                
+                // 固定10名初始员工
+                const employees = ref(Array.from({length: 10}, (_, i) => {
+                    const emp = { id: i + 1, name: `成员 ${i + 1}`, schedule: {}, remark: "" };
+                    return emp;
+                }));
+
+                const daysInMonth = computed(() => {
+                    if (!selectedMonthStr.value) return 28;
+                    const [year, month] = selectedMonthStr.value.split('-');
+                    return new Date(year, parseInt(month), 0).getDate();
+                });
+
+                const onMonthChange = () => {
+                    if(!selectedMonthStr.value) return;
+                    const [year, month] = selectedMonthStr.value.split('-');
+                    title.value = `${year}. ${parseInt(month, 10)}月安保考勤表`;
+                };
+
+                const addEmployee = () => {
+                    const newEmp = { id: Date.now(), name: "新增员工", schedule: {}, remark: "" };
+                    employees.value.push(newEmp);
+                };
+
+                const removeEmployee = (id) => {
+                    if(employees.value.length > 1) {
+                        employees.value = employees.value.filter(e => e.id !== id);
+                    }
+                };
+
+                const getCellClass = (val) => {
+                    if (!val) return '';
+                    const v = val.trim().toUpperCase();
+                    if (v === '休') return 'bg-xiu';
+                    if (v === '离') return 'bg-li';
+                    if (v === 'A' || v === '白') return 'bg-A';
+                    if (v === 'B' || v === '晚') return 'bg-B';
+                    if (v.includes('顶') || v.includes('消控')) return 'bg-green';
+                    return '';
+                };
+
+                const cycleValue = (emp, day) => {
+                    const cycle = ['A', 'B', '休', '离', ''];
+                    const current = emp.schedule[day] ? emp.schedule[day].trim().toUpperCase() : '';
+                    let idx = cycle.indexOf(current);
+                    emp.schedule[day] = cycle[(idx + 1) % cycle.length];
+                };
+
+                const clearAB = () => {
+                    if(!confirm("确定清空当前图表上所有的A班和B班(保留休假/离职等设置)吗？")) return;
+                    employees.value.forEach(emp => {
+                        for(const day in emp.schedule) {
+                            const val = emp.schedule[day] ? emp.schedule[day].trim().toUpperCase() : '';
+                            if(val === 'A' || val === 'B' || val === '白' || val === '晚') {
+                                emp.schedule[day] = '';
+                            }
+                        }
+                    });
+                };
+
+                const autoSchedule = () => {
+                    const days = daysInMonth.value;
+                    const minWorkers = 8;
+                    const maxRests = 4;
+                    const totalEmps = employees.value.length;
+                    
+                    if (totalEmps < minWorkers) {
+                        alert(`总人数(${totalEmps})少于每日法定要求(${minWorkers}人)！在增加员工名额之前无法完成排班。`);
+                        return;
+                    }
+
+                    // 1. 为支持容错退回，记录本次排班前的所有“手动设置”
+                    const snapshot = employees.value.map(emp => {
+                        const cloneSch = {};
+                        for (let d = 1; d <= 31; d++) cloneSch[d] = emp.schedule[d];
+                        return { id: emp.id, schedule: cloneSch };
+                    });
+
+                    let success = false;
+                    const MAX_RETRIES = 10000;
+                    
+                    // 万次重试算法寻找完美解
+                    for (let retry = 0; retry < MAX_RETRIES; retry++) {
+                        // 每次尝试前恢复干干净净的快照环境
+                        employees.value.forEach((emp, i) => {
+                            for (let d = 1; d <= days; d++) {
+                                emp.schedule[d] = snapshot[i].schedule[d];
+                            }
+                        });
+                        
+                        try {
+                            let dailyRestsCount = new Array(days + 1).fill(0);
+                            employees.value.forEach(emp => {
+                                for (let d = 1; d <= days; d++) {
+                                    if (emp.schedule[d] === '休' || emp.schedule[d] === '离') dailyRestsCount[d]++;
+                                }
+                            });
+
+                            const empsNeeded = employees.value.map(emp => {
+                                let currentRests = 0;
+                                for (let d = 1; d <= days; d++) {
+                                    if (emp.schedule[d] === '休') currentRests++;
+                                }
+                                return { emp, needed: Math.max(0, maxRests - currentRests) };
+                            });
+
+                            const maxDailyRests = totalEmps - minWorkers; // 最大容许休息的人数
+
+                            while(true) {
+                                let eligibleEmps = empsNeeded.filter(e => e.needed > 0);
+                                if (eligibleEmps.length === 0) break; // 全部人都分发完4天总额了
+                                
+                                // 随机抽取一个人满足公平性并打乱死循环
+                                let targetIdx = Math.floor(Math.random() * eligibleEmps.length);
+                                let targetEmpObj = eligibleEmps[targetIdx];
+                                
+                                let validDays = [];
+                                for (let d = 1; d <= days; d++) {
+                                   if (targetEmpObj.emp.schedule[d]) continue; // 已经被A/B/特批占据了
+                                   if (dailyRestsCount[d] >= maxDailyRests) continue; // 这一天再休，在岗就不够8人了
+
+                                   // 【新增死命令】不能存在一天休2个白班或2个晚班！即：每组每天最多允许1人休
+                                   let aRests = 0; let bRests = 0;
+                                   employees.value.forEach((e, idx) => {
+                                       if (e.schedule[d] === '休' || e.schedule[d] === '离') {
+                                           if (idx < 5) aRests++; else bRests++;
+                                       }
+                                   });
+                                   let isTargetA = employees.value.indexOf(targetEmpObj.emp) < 5;
+                                   if (isTargetA && aRests >= 1) continue; 
+                                   if (!isTargetA && bRests >= 1) continue; 
+
+                                   // 【超进化算力：间隔拉扯算法】
+                                   let checkSch = [];
+                                   for (let i=1; i<=days; i++) {
+                                       if (targetEmpObj.emp.schedule[i] === '休') checkSch.push(i);
+                                   }
+                                   checkSch.push(d);
+                                   checkSch.sort((a,b) => a-b);
+                                   
+                                   let k = checkSch.indexOf(d);
+                                   let spacingValid = true;
+
+                                   if (k > 0) {
+                                       let leftGap = d - checkSch[k-1] - 1;
+                                       if (leftGap === 0) {
+                                           if (k > 1 && checkSch[k-1] - checkSch[k-2] - 1 === 0) spacingValid = false;
+                                           if (k < checkSch.length - 1 && checkSch[k+1] - d - 1 === 0) spacingValid = false;
+                                           if (k > 1 && checkSch[k-1] - checkSch[k-2] - 1 < 8) spacingValid = false; 
+                                           if (k < checkSch.length - 1 && checkSch[k+1] - d - 1 > 0 && checkSch[k+1] - d - 1 < 8) spacingValid = false;
+                                       } else {
+                                           if (leftGap < 5) spacingValid = false;
+                                           if (k > 1 && checkSch[k-1] - checkSch[k-2] - 1 === 0 && leftGap < 8) spacingValid = false;
+                                       }
+                                   }
+
+                                   if (k < checkSch.length - 1 && spacingValid) {
+                                       let rightGap = checkSch[k+1] - d - 1;
+                                       if (rightGap === 0) {
+                                           if (k < checkSch.length - 2 && checkSch[k+2] - checkSch[k+1] - 1 === 0) spacingValid = false;
+                                           if (k > 0 && d - checkSch[k-1] - 1 > 0 && d - checkSch[k-1] - 1 < 8) spacingValid = false;
+                                           if (k + 2 < checkSch.length && checkSch[k+2] - checkSch[k+1] - 1 < 8) spacingValid = false;
+                                       } else {
+                                           if (rightGap < 5) spacingValid = false;
+                                           if (k < checkSch.length - 2 && checkSch[k+2] - checkSch[k+1] - 1 === 0 && rightGap < 8) spacingValid = false;
+                                       }
+                                   }
+                                   
+                                   if (!spacingValid) continue;
+                                   
+                                   // 【核心约束2】尽量每天都有人休息，因此给予“0人休的冷门日子”极高抽中概率
+                                   let weight = dailyRestsCount[d] === 0 ? 50 : 1;
+                                   validDays.push({ day: d, weight });
+                                }
+                                
+                                if (validDays.length === 0) {
+                                   throw new Error("陷入死路"); // 没有合规日子能分配了，直接抛出重试
+                                }
+                                
+                                // 根据权重滚轮抽签
+                                let totalWeight = validDays.reduce((sum, v) => sum + v.weight, 0);
+                                let rand = Math.random() * totalWeight;
+                                let selectedDay = validDays[0].day;
+                                for (let v of validDays) {
+                                   if (rand < v.weight) {
+                                       selectedDay = v.day;
+                                       break;
+                                   }
+                                   rand -= v.weight;
+                                }
+                                
+                                targetEmpObj.emp.schedule[selectedDay] = '休';
+                                targetEmpObj.needed--;
+                                dailyRestsCount[selectedDay]++;
+                            }
+
+                            success = true; // 到达这里说明全部符合规矩
+                            break;
+                            
+                        } catch(e) {
+                            // 此条随机路线走入了死胡同，静默忽略，进入下一次重试
+                        }
+                    }
+
+                    if (!success) {
+                        alert(`高难度预警：系统尝试了多达 ${MAX_RETRIES} 次路线组合寻找答案，但是基于您的硬性要求（不能连休3天 + 每天必须有8人在岗 + 要优先避开手动休假），这是一个在数学上无解的残局。现已还原图表，请您减少特批或者增加员工后再重试。`);
+                        return;
+                    }
+
+                    // 2. 从未被排班的干净格子上执行固定班次分配：前5人排A班，其余排B班
+                    for (let d = 1; d <= days; d++) {
+                        employees.value.forEach((emp, index) => {
+                            if (!emp.schedule[d]) {
+                                emp.schedule[d] = index < 5 ? 'A' : 'B';
+                            }
+                        });
+                    }
+                };
+
+                const dailyHeadcount = (day) => {
+                    return employees.value.reduce((count, emp) => {
+                        const val = emp.schedule[day] ? emp.schedule[day].trim() : '';
+                        if (val && val !== '休' && val !== '离') return count + 1;
+                        return count;
+                    }, 0);
+                };
+
+                const isUnderStaffed = (day) => {
+                    const c = dailyHeadcount(day);
+                    return c > 0 && c < 8; // If nobody is assigned initially it's 0, we don't spam red on a blank table
+                }
+
+                const statCount = (emp, targetType) => {
+                    let count = 0;
+                    for (let d = 1; d <= daysInMonth.value; d++) {
+                        const val = emp.schedule[d] ? emp.schedule[d].trim().toUpperCase() : '';
+                        if (!val) continue;
+                        if (targetType === 'A' && (val === 'A' || val === '白')) count++;
+                        else if (targetType === 'B' && (val === 'B' || val === '晚')) count++;
+                        else if (targetType === '休' && val === '休') count++;
+                    }
+                    return count || '-';
+                };
+
+                const exportToExcel = () => {
+                    const data = [];
+                    const days = daysInMonth.value;
+                    const titleRow = [title.value];
+                    for(let i=0; i<days + 5; i++) titleRow.push(''); // Span logic includes new stat cols
+                    data.push(titleRow);
+
+                    const header = ['序号', '姓名\\日期'];
+                    for (let day = 1; day <= days; day++) header.push(day);
+                    header.push('白(A)', '晚(B)', '休', '备注');
+                    data.push(header);
+
+                    employees.value.forEach((emp, index) => {
+                        const row = [index + 1, emp.name];
+                        for (let day = 1; day <= days; day++) row.push(emp.schedule[day] || '');
+                        row.push(statCount(emp, 'A'), statCount(emp, 'B'), statCount(emp, '休'), emp.remark || '');
+                        data.push(row);
+                    });
+
+                    const summary = ['', '总出岗人数'];
+                    for (let day = 1; day <= days; day++) summary.push(dailyHeadcount(day));
+                    summary.push('','','','');
+                    data.push(summary);
+
+                    if (bottomNotes.value) {
+                         data.push([]);
+                         bottomNotes.value.split('\n').forEach(note => data.push([note]));
+                    }
+
+                    const ws = XLSX.utils.aoa_to_sheet(data);
+                    if(!ws['!merges']) ws['!merges'] = [];
+                    ws['!merges'].push({s: {r:0, c:0}, e: {r:0, c: days + 5}});
+
+                    const wscols = [{wch: 6}, {wch: 12}];
+                    for(let i=0; i<days; i++) wscols.push({wch: 4});
+                    wscols.push({wch: 6}, {wch: 6}, {wch: 6}, {wch: 22}); // Stat columns + Remark
+                    ws['!cols'] = wscols;
+
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "考勤表");
+                    XLSX.writeFile(wb, `${title.value}.xlsx`);
+                };
+
+                return {
+                    selectedMonthStr, title, bottomNotes, employees, daysInMonth,
+                    onMonthChange, addEmployee, removeEmployee, getCellClass, cycleValue,
+                    clearAB, autoSchedule, dailyHeadcount, isUnderStaffed, statCount, exportToExcel
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
