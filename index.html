@@ -38,6 +38,11 @@
             display: flex;
             justify-content: center;
             min-height: 100vh;
+            /* Anti-copy text selection block */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
 
         .container {
@@ -581,6 +586,21 @@
                 };
             }
         }).mount('#app');
+
+        // ======== 防复制与防查看源码护盾 ========
+        // 禁用右键菜单
+        document.addEventListener('contextmenu', event => event.preventDefault());
+        
+        // 禁用常见开发者快捷键 (F12, Ctrl+Shift+I/J, Ctrl+U, Cmd+Opt+I)
+        document.onkeydown = function (e) {
+            if (e.keyCode === 123) return false; // F12
+            if (e.ctrlKey && e.shiftKey && e.keyCode === 73) return false; // Ctrl+Shift+I
+            if (e.ctrlKey && e.shiftKey && e.keyCode === 74) return false; // Ctrl+Shift+J
+            if (e.ctrlKey && e.keyCode === 85) return false; // Ctrl+U (查看源码)
+            if (e.metaKey && e.altKey && e.keyCode === 73) return false; // Cmd+Opt+I (Mac)
+            if (e.metaKey && e.altKey && e.keyCode === 85) return false; // Cmd+Opt+U (Mac)
+        };
+        // ========================================
     </script>
 </body>
 </html>
