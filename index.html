@@ -222,9 +222,13 @@
                 <button @click="clearAB" class="outline" title="仅清空目前的A班和B班，保留特定的假日">
                     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> 清空 A/B 班
                 </button>
+                <div class="action-group" style="border-left: 1px solid var(--border-color); padding-left: 12px; margin-left: 4px;">
+                    <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">月休限制:</span>
+                    <input type="number" v-model.number="maxRestDays" min="0" max="10" style="width: 45px; padding: 8px; border: 2px solid var(--border-color); border-radius: 8px; font-weight: bold; text-align: center;">
+                </div>
                 <select v-model="scheduleMode" class="mode-select" title="选择休息模式">
-                    <option value="scattered">模式：随机分散 (休4天)</option>
-                    <option value="2plus2">模式：2天连休×2次 (2+2)</option>
+                    <option value="scattered">模式：随机分散 (休{{ maxRestDays }}天)</option>
+                    <option value="2plus2" :disabled="maxRestDays < 4">模式：2天连休 (限月休≥4)</option>
                 </select>
                 <button @click="autoSchedule" class="primary-gradient">
                     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> ⚡ 一键智能排班
@@ -278,7 +282,7 @@
                         </td>
                         <td class="stat-cell stat-A">{{ statCount(emp, 'A') }}</td>
                         <td class="stat-cell stat-B">{{ statCount(emp, 'B') }}</td>
-                        <td class="stat-cell stat-Xiu">{{ statCount(emp, '休') }}</td>
+                        <td class="stat-cell stat-Xiu" :class="{'warn-text': statCount(emp, '休') > maxRestDays}">{{ statCount(emp, '休') }}</td>
                         <td>
                             <input type="text" class="cell-input" v-model="emp.remark" style="text-align:left; padding:0 8px;">
                         </td>
@@ -318,6 +322,7 @@
                 const title = ref(`${today.getFullYear()}. ${(today.getMonth() + 1)}月安保考勤表`);
                 const bottomNotes = ref("备注说明：\n1. A为白班，B为夜班，休为休息。排班已确保每日至少8名及以上安保在岗。");
                 const scheduleMode = ref('scattered'); // 'scattered' or '2plus2'
+                const maxRestDays = ref(4); 
                 
                 // 固定10名初始员工
                 const employees = ref(Array.from({length: 10}, (_, i) => {
@@ -381,7 +386,7 @@
                 const autoSchedule = () => {
                     const days = daysInMonth.value;
                     const minWorkers = 8;
-                    const maxRests = 4;
+                    const maxRests = maxRestDays.value;
                     const totalEmps = employees.value.length;
                     
                     if (totalEmps < minWorkers) {
@@ -502,9 +507,11 @@
                                     dailyRestsCount[selectedDay]++;
                                 }
                             } else if (scheduleMode.value === '2plus2') {
-                                // 2+2 Mode: Each employee needs 2 blocks of 2 days
+                                // 2+2 Mode: Each employee needs blocks of 2 days
                                 const blocksNeeded = employees.value.map(emp => {
-                                    return { emp, needed: 2 }; // Fixed 2 blocks
+                                    let current = 0;
+                                    for (let d = 1; d <= days; d++) if (emp.schedule[d] === '休') current++;
+                                    return { emp, needed: Math.floor(Math.max(0, maxRests - current) / 2) }; 
                                 });
 
                                 while(true) {
@@ -563,6 +570,32 @@
                                     targetObj.needed--;
                                     dailyRestsCount[selected.d1]++;
                                     dailyRestsCount[selected.d2]++;
+                                }
+
+                                // If maxRests is odd (e.g. 5), the remaining 1 day is handled by a secondary scattered pass
+                                const remainingRests = employees.value.map(emp => {
+                                    let current = 0;
+                                    for (let d = 1; d <= days; d++) if (emp.schedule[d] === '休') current++;
+                                    return { emp, needed: Math.max(0, maxRests - current) };
+                                });
+
+                                if (remainingRests.some(r => r.needed > 0)) {
+                                    // Small scattered pass for odd days
+                                    for (let rObj of remainingRests) {
+                                        while (rObj.needed > 0) {
+                                            let vd = [];
+                                            for (let d = 1; d <= days; d++) {
+                                                if (rObj.emp.schedule[d]) continue;
+                                                if (dailyRestsCount[d] >= maxDailyRests) continue;
+                                                vd.push(d);
+                                            }
+                                            if (vd.length === 0) break;
+                                            let sd = vd[Math.floor(Math.random() * vd.length)];
+                                            rObj.emp.schedule[sd] = '休';
+                                            rObj.needed--;
+                                            dailyRestsCount[sd]++;
+                                        }
+                                    }
                                 }
                             }
 
