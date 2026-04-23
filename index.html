@@ -343,7 +343,18 @@
                 const maxRestDays = ref(savedData?.maxRestDays || 4); 
                 
                 // Initial employees
-                const defaultEmps = Array.from({length: 10}, (_, i) => ({ id: i + 1, name: `成员 ${i + 1}`, schedule: {}, remark: "" }));
+                const defaultEmps = [
+                    { id: 1, name: "张继兵", schedule: {}, remark: "" },
+                    { id: 2, name: "林斌", schedule: {}, remark: "" },
+                    { id: 3, name: "曾卫明", schedule: {}, remark: "" },
+                    { id: 4, name: "张嘉豪", schedule: {}, remark: "" },
+                    { id: 5, name: "林俊生", schedule: {}, remark: "" },
+                    { id: 6, name: "王家飞", schedule: {}, remark: "" },
+                    { id: 7, name: "孔飞飞", schedule: {}, remark: "" },
+                    { id: 8, name: "索小龙", schedule: {}, remark: "" },
+                    { id: 9, name: "徐欢新", schedule: {}, remark: "" },
+                    { id: 10, name: "周林国", schedule: {}, remark: "" }
+                ];
                 const employees = ref(savedData?.employees || defaultEmps);
 
                 // Auto-save logic
