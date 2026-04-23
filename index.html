@@ -314,7 +314,7 @@
         <div class="help-panel">
             <div class="help-title">💡 智能排班硬核算法说明：</div>
             <div>1. <strong>灵活休息模式：</strong>系统提供“随机分散”和“2+2连休”两种模式。随机模式确保休息均匀分布，2+2模式则强制每人每月进行两次2天连休。</div>
-            <div>2. <strong>告别疯狂连休：</strong>在随机模式下，拦死连休3天。在2+2模式下，两组连休之间会自动拉开至少8天的间隔。</div>
+            <div>2. <strong>告别疯狂连休：</strong>在随机模式下，拦死连休3天。在2+2模式下，两组连休之间会自动拉开至少10天的间隔。</div>
             <div>3. <strong>平铺式散班：</strong>算法通过 50 倍的轮盘加权运算机制，尽可能将休息天数打撒，做到了 <strong>“尽量保证每一天都有一个人轮休”</strong> 的人性化策略。</div>
             <div>4. <strong>固定白班晚班原则：</strong>在巧妙穿插完休假后，系统会稳稳认定 <span class="badge" style="background:#E0F2FE;color:#0369A1;">前 5 行人员为永久白班(A)</span>，从第 6 行及以后的人员为 <span class="badge" style="background:#EDE9FE;color:#4338CA;">夜班(B)</span>，不乱位不串班。</div>
             <div>5. <strong>硬性底线死防守：</strong>系统每秒推演上千条路线，任何违背 <strong>低于8名在岗人员</strong>，或者出现 <strong>同一天内有2人同休白班 / 2人同休晚班</strong> 的分支都将被无情抹除换路。您完全不用操心合规性。</div>
@@ -552,7 +552,7 @@
                                         if (isA && (aRests1 >= 1 || aRests2 >= 1)) continue;
                                         if (!isA && (bRests1 >= 1 || bRests2 >= 1)) continue;
 
-                                        // Spacing: if already has a block, must be at least 7 days apart
+                                        // Spacing: if already has a block, must be at least 10 days apart
                                         let existingRests = [];
                                         for (let i = 1; i <= days; i++) if (targetObj.emp.schedule[i] === '休') existingRests.push(i);
                                         
@@ -561,7 +561,7 @@
                                             existingRests.forEach(r => {
                                                 minDist = Math.min(minDist, Math.abs(d1 - r), Math.abs(d2 - r));
                                             });
-                                            if (minDist < 8) continue; // Gap of at least 7 working days
+                                            if (minDist < 11) continue; // Gap of at least 10 working days
                                         }
 
                                         let weight = (dailyRestsCount[d1] === 0 && dailyRestsCount[d2] === 0) ? 50 : 1;
