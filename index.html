@@ -552,7 +552,7 @@
                                         if (isA && (aRests1 >= 1 || aRests2 >= 1)) continue;
                                         if (!isA && (bRests1 >= 1 || bRests2 >= 1)) continue;
 
-                                        // Spacing: if already has a block, must be at least 10 days apart
+                                        // Spacing: if already has a block, must be at least 7 days apart
                                         let existingRests = [];
                                         for (let i = 1; i <= days; i++) if (targetObj.emp.schedule[i] === '休') existingRests.push(i);
                                         
@@ -561,7 +561,7 @@
                                             existingRests.forEach(r => {
                                                 minDist = Math.min(minDist, Math.abs(d1 - r), Math.abs(d2 - r));
                                             });
-                                            if (minDist < 11) continue; // Gap of at least 10 working days
+                                            if (minDist < 11) continue; // 两个双休之间至少间隔10天
                                         }
 
                                         let weight = (dailyRestsCount[d1] === 0 && dailyRestsCount[d2] === 0) ? 50 : 1;
