@@ -199,6 +199,8 @@
         .summary-row { background-color: var(--header-bg); font-weight: 700; border-top: 2px solid var(--border-color); }
         .warn-text { color: #DC2626 !important; font-weight: bold; background-color: #FEE2E2; }
         .overstaffed-text { color: #B45309 !important; font-weight: bold; background-color: #FEF9C3; }
+        .weekend-text { color: #EF4444; } /* 周末红色 */
+        .col-day-header { font-size: 11px; color: #64748B; background-color: #F8FAFC !important; }
 
         textarea.footer-notes {
             width: 100%; margin-top: 24px; padding: 16px; border: 2px solid var(--border-color); border-radius: 10px;
@@ -250,19 +252,24 @@
             <table id="scheduleTable">
                 <thead>
                     <tr>
-                        <th class="col-seq">序号</th>
-                        <th class="col-name-date">
+                        <th rowspan="2" class="col-seq">序号</th>
+                        <th rowspan="2" class="col-name-date">
                             <div class="diagonal-header">
                                 <span class="date-label">日期</span>
                                 <span class="name-label">姓名</span>
                             </div>
                         </th>
-                        <th v-for="day in daysInMonth" :key="day" class="col-day">{{ day }}</th>
+                        <th v-for="day in daysInMonth" :key="'d'+day" class="col-day" :class="{'weekend-text': isWeekend(day)}">{{ day }}</th>
                         <!-- Stat Columns -->
-                        <th class="col-stat" title="白班总数">白(A)</th>
-                        <th class="col-stat" title="晚班总数">晚(B)</th>
-                        <th class="col-stat" title="休息总数">休</th>
-                        <th class="col-remark">备注</th>
+                        <th rowspan="2" class="col-stat" title="白班总数">白(A)</th>
+                        <th rowspan="2" class="col-stat" title="晚班总数">晚(B)</th>
+                        <th rowspan="2" class="col-stat" title="休息总数">休</th>
+                        <th rowspan="2" class="col-remark">备注</th>
+                    </tr>
+                    <tr>
+                        <th v-for="day in daysInMonth" :key="'w'+day" class="col-day col-day-header" :class="{'weekend-text': isWeekend(day)}">
+                            {{ getDayOfWeek(day) }}
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -667,6 +674,22 @@
                     return count || '-';
                 };
 
+                const getDayOfWeek = (day) => {
+                    if (!selectedMonthStr.value) return '';
+                    const [year, month] = selectedMonthStr.value.split('-');
+                    const date = new Date(year, month - 1, day);
+                    const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+                    return weekDays[date.getDay()];
+                };
+
+                const isWeekend = (day) => {
+                    if (!selectedMonthStr.value) return false;
+                    const [year, month] = selectedMonthStr.value.split('-');
+                    const date = new Date(year, month - 1, day);
+                    const d = date.getDay();
+                    return d === 0 || d === 6;
+                };
+
                 const exportToExcel = () => {
                     const data = [];
                     const days = daysInMonth.value;
@@ -678,6 +701,11 @@
                     for (let day = 1; day <= days; day++) header.push(day);
                     header.push('白(A)', '晚(B)', '休', '备注');
                     data.push(header);
+
+                    const weekHeader = ['', ''];
+                    for (let day = 1; day <= days; day++) weekHeader.push(getDayOfWeek(day));
+                    weekHeader.push('', '', '', '');
+                    data.push(weekHeader);
 
                     employees.value.forEach((emp, index) => {
                         const row = [index + 1, emp.name];
@@ -714,7 +742,7 @@
                     selectedMonthStr, title, bottomNotes, employees, daysInMonth,
                     onMonthChange, addEmployee, removeEmployee, getCellClass, cycleValue,
                     clearAB, autoSchedule, dailyHeadcount, isUnderStaffed, isOverStaffed, statCount, exportToExcel,
-                    scheduleMode
+                    scheduleMode, getDayOfWeek, isWeekend
                 };
             }
         }).mount('#app');
