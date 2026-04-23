@@ -322,22 +322,41 @@
     </div>
 
     <script>
-        const { createApp, ref, computed } = Vue;
+        const { createApp, ref, computed, watch, onMounted } = Vue;
 
         createApp({
             setup() {
+                const STORAGE_KEY = 'smart-schedule-data-v1';
+                
+                // Helper to load from storage
+                const loadSaved = () => {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    return saved ? JSON.parse(saved) : null;
+                };
+                const savedData = loadSaved();
+
                 const today = new Date();
                 const selectedMonthStr = ref(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
-                const title = ref(`${today.getFullYear()}. ${(today.getMonth() + 1)}月安保考勤表`);
-                const bottomNotes = ref("备注说明：\n1. A为白班，B为夜班，休为休息。排班已确保每日至少8名及以上安保在岗。");
-                const scheduleMode = ref('scattered'); // 'scattered' or '2plus2'
-                const maxRestDays = ref(4); 
+                const title = ref(savedData?.title || `${today.getFullYear()}. ${(today.getMonth() + 1)}月安保考勤表`);
+                const bottomNotes = ref(savedData?.bottomNotes || "备注说明：\n1. A为白班，B为夜班，休为休息。排班已确保每日至少8名及以上安保在岗。");
+                const scheduleMode = ref(savedData?.scheduleMode || 'scattered'); // 'scattered' or '2plus2'
+                const maxRestDays = ref(savedData?.maxRestDays || 4); 
                 
-                // 固定10名初始员工
-                const employees = ref(Array.from({length: 10}, (_, i) => {
-                    const emp = { id: i + 1, name: `成员 ${i + 1}`, schedule: {}, remark: "" };
-                    return emp;
-                }));
+                // Initial employees
+                const defaultEmps = Array.from({length: 10}, (_, i) => ({ id: i + 1, name: `成员 ${i + 1}`, schedule: {}, remark: "" }));
+                const employees = ref(savedData?.employees || defaultEmps);
+
+                // Auto-save logic
+                watch([employees, title, bottomNotes, scheduleMode, maxRestDays], () => {
+                    const dataToSave = {
+                        employees: employees.value,
+                        title: title.value,
+                        bottomNotes: bottomNotes.value,
+                        scheduleMode: scheduleMode.value,
+                        maxRestDays: maxRestDays.value
+                    };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+                }, { deep: true });
 
                 const daysInMonth = computed(() => {
                     if (!selectedMonthStr.value) return 28;
