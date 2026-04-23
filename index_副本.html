@@ -198,7 +198,6 @@
 
         .summary-row { background-color: var(--header-bg); font-weight: 700; border-top: 2px solid var(--border-color); }
         .warn-text { color: #DC2626 !important; font-weight: bold; background-color: #FEE2E2; }
-        .overstaffed-text { color: #B45309 !important; font-weight: bold; background-color: #FEF9C3; }
 
         textarea.footer-notes {
             width: 100%; margin-top: 24px; padding: 16px; border: 2px solid var(--border-color); border-radius: 10px;
@@ -291,9 +290,8 @@
                     
                     <!-- Bottom Total Working -->
                     <tr class="summary-row">
-                        <td colspan="2" style="text-align: right; padding-right: 16px;">总出岗人数<br><span style="font-size:10px;font-weight:normal;color:#64748B;">(8–9人/天)</span></td>
-                        <td v-for="day in daysInMonth" :key="day" 
-                            :class="{'warn-text': isUnderStaffed(day), 'overstaffed-text': isOverStaffed(day)}">
+                        <td colspan="2" style="text-align: right; padding-right: 16px;">总出岗人数<br><span style="font-size:10px;font-weight:normal;color:#64748B;">(不可少于8人)</span></td>
+                        <td v-for="day in daysInMonth" :key="day" :class="{'warn-text': isUnderStaffed(day)}">
                             {{ dailyHeadcount(day) || '' }}
                         </td>
                         <td colspan="4"></td>
@@ -432,7 +430,6 @@
                             });
 
                             const maxDailyRests = totalEmps - minWorkers; // 最大容许休息的人数
-                            const minDailyRests = 1; // 每天至少必须有1人休息，防止全员上岗
 
                             if (scheduleMode.value === 'scattered') {
                                 while(true) {
@@ -445,9 +442,7 @@
                                     let validDays = [];
                                     for (let d = 1; d <= days; d++) {
                                        if (targetEmpObj.emp.schedule[d]) continue; 
-                                   if (dailyRestsCount[d] >= maxDailyRests) continue;
-                                   // 如果这一天已经有足够多的人要休息，不需要强制，但如果所有人都没休息，需要确保有人休息
-                                   // （该约束由调度权重引导，不在此处强制拒绝） 
+                                       if (dailyRestsCount[d] >= maxDailyRests) continue; 
 
                                        let aRests = 0; let bRests = 0;
                                        employees.value.forEach((e, idx) => {
@@ -532,7 +527,6 @@
                                         // Basic check
                                         if (targetObj.emp.schedule[d1] || targetObj.emp.schedule[d2]) continue;
                                         if (dailyRestsCount[d1] >= maxDailyRests || dailyRestsCount[d2] >= maxDailyRests) continue;
-                                        // 与scattered模式一致，不额外限制最小休息，由权重引导
 
                                         // Shift rest limit
                                         let aRests1 = 0, bRests1 = 0;
@@ -605,13 +599,6 @@
                                 }
                             }
 
-                            // 最后验证：确保每天都至少有1人在休（不允许全员上岗）
-                            for (let d = 1; d <= days; d++) {
-                                if (dailyRestsCount[d] < minDailyRests) {
-                                    throw new Error(`第${d}天没人休息`);
-                                }
-                            }
-
                             success = true; // 到达这里说明全部符合规矩
                             break;
                             
@@ -641,13 +628,6 @@
                         if (val && val !== '休' && val !== '离') return count + 1;
                         return count;
                     }, 0);
-                };
-
-                const isOverStaffed = (day) => {
-                    // 全员上岗（没有人休息）也算超标
-                    const total = employees.value.length;
-                    const c = dailyHeadcount(day);
-                    return c > 0 && c >= total;
                 };
 
                 const isUnderStaffed = (day) => {
@@ -713,7 +693,7 @@
                 return {
                     selectedMonthStr, title, bottomNotes, employees, daysInMonth,
                     onMonthChange, addEmployee, removeEmployee, getCellClass, cycleValue,
-                    clearAB, autoSchedule, dailyHeadcount, isUnderStaffed, isOverStaffed, statCount, exportToExcel,
+                    clearAB, autoSchedule, dailyHeadcount, isUnderStaffed, statCount, exportToExcel,
                     scheduleMode
                 };
             }
